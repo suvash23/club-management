@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MEMBER
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  ONLINE
+}
+
+enum PaymentStatus {
+  PAID
+  PENDING
+  FAILED
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum RegistrationStatus {
+  REGISTERED
+  ATTENDED
+  CANCELLED
+}
+
+model User {
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  password           String
+  role               Role           @default(MEMBER)
+  isActive           Boolean        @default(true)
+  resetToken         String?
+  resetTokenExpires  DateTime?
+  memberProfile      MemberProfile?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+}
+
+model MemberProfile {
+  id                 String              @id @default(uuid())
+  userId             String              @unique
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memberCode         String              @unique
+  firstName          String
+  lastName           String
+  phone              String?
+  address            String?
+  avatarUrl          String?
+  status             MemberStatus        @default(ACTIVE)
+  joinDate           DateTime            @default(now())
+  subscriptions      MemberSubscription[]
+  payments           Payment[]
+  eventRegistrations EventRegistration[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model MembershipPlan {
+  id             String               @id @default(uuid())
+  name           String
+  description    String?
+  price          Float
+  durationInDays Int                  @default(30)
+  features       String?              // Comma-separated or JSON list of perks
+  isActive       Boolean              @default(true)
+  subscriptions  MemberSubscription[]
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+}
+
+model MemberSubscription {
+  id             String             @id @default(uuid())
+  memberId       String
+  member         MemberProfile      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           MembershipPlan     @relation(fields: [planId], references: [id])
+  startDate      DateTime           @default(now())
+  endDate        DateTime
+  status         SubscriptionStatus @default(ACTIVE)
+  payments       Payment[]
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model Payment {
+  id             String              @id @default(uuid())
+  invoiceNumber  String              @unique
+  memberId       String
+  member         MemberProfile       @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  subscriptionId String?
+  subscription   MemberSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  amount         Float
+  method         PaymentMethod       @default(CASH)
+  status         PaymentStatus       @default(PAID)
+  notes          String?
+  paidAt         DateTime            @default(now())
+  createdAt      DateTime            @default(now())
+}
+
+model ClubEvent {
+  id            String              @id @default(uuid())
+  title         String
+  description   String?
+  location      String
+  startDateTime DateTime
+  endDateTime   DateTime?
+  maxAttendees  Int                 @default(50)
+  fee           Float               @default(0)
+  status        EventStatus         @default(UPCOMING)
+  registrations EventRegistration[]
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+}
+
+model EventRegistration {
+  id           String             @id @default(uuid())
+  eventId      String
+  event        ClubEvent          @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  memberId     String
+  member       MemberProfile      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  status       RegistrationStatus @default(REGISTERED)
+  registeredAt DateTime           @default(now())
+
+  @@unique([eventId, memberId])
+}
