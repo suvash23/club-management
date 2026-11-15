@@ -19,6 +19,11 @@ export const PaymentsPage: React.FC = () => {
   const [members, setMembers] = useState<MemberProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [methodFilter, setMethodFilter] = useState('');
@@ -40,16 +45,20 @@ export const PaymentsPage: React.FC = () => {
   useEffect(() => {
     fetchPayments();
     fetchMembers();
-  }, [statusFilter, methodFilter]);
+  }, [statusFilter, methodFilter, page]);
 
   const fetchPayments = async () => {
     try {
       setLoading(true);
-      const params: any = {};
+      const params: any = { page, limit: 6 };
       if (statusFilter) params.status = statusFilter;
       if (methodFilter) params.method = methodFilter;
       const res = await apiClient.get('/payments', { params });
-      setPayments(res.data || []);
+      setPayments(res.data.data || []);
+      if (res.data.meta) {
+        setTotalPages(res.data.meta.totalPages || 1);
+        setTotalCount(res.data.meta.total || 0);
+      }
     } catch (err) {
       console.error('Failed to load payments:', err);
     } finally {
@@ -237,6 +246,32 @@ export const PaymentsPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Bar */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Showing {payments.length} of {totalCount} transactions (Page {page} of {totalPages})
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="font-bold text-slate-800 px-1">
+              {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 

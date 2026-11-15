@@ -12,6 +12,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   QrCode,
+  Camera,
+  Upload,
 } from 'lucide-react';
 
 export const MemberProfilePage: React.FC = () => {
@@ -20,6 +22,7 @@ export const MemberProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   // Change password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -56,6 +59,28 @@ export const MemberProfilePage: React.FC = () => {
       console.error('Failed to load profile');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile?.memberProfile?.id) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploadingAvatar(true);
+    try {
+      await apiClient.post(`/members/${profile.memberProfile.id}/avatar`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await fetchProfile();
+      await refreshProfile();
+      alert('Profile photo uploaded successfully!');
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to upload photo');
+    } finally {
+      setUploadingAvatar(false);
     }
   };
 
@@ -151,12 +176,24 @@ export const MemberProfilePage: React.FC = () => {
 
             {/* Member Photo & Name */}
             <div className="mt-8 flex items-center gap-4">
-              <div className="w-16 h-16 rounded-2xl bg-white/10 border-2 border-white/20 overflow-hidden flex items-center justify-center text-xl font-bold shrink-0">
-                {member?.avatarUrl ? (
-                  <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  member?.firstName?.charAt(0)
-                )}
+              <div className="relative group">
+                <div className="w-16 h-16 rounded-2xl bg-white/10 border-2 border-white/20 overflow-hidden flex items-center justify-center text-xl font-bold shrink-0">
+                  {member?.avatarUrl ? (
+                    <img src={member.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    member?.firstName?.charAt(0)
+                  )}
+                </div>
+                <label className="absolute inset-0 bg-slate-900/60 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition">
+                  <Camera className="w-5 h-5 text-white" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                    className="hidden"
+                  />
+                </label>
               </div>
               <div>
                 <p className="font-extrabold text-lg text-white">
@@ -165,6 +202,17 @@ export const MemberProfilePage: React.FC = () => {
                 <p className="font-mono text-xs text-sky-300 tracking-wider">
                   {member?.memberCode}
                 </p>
+                <label className="inline-flex items-center gap-1 text-[11px] text-sky-200 hover:text-white cursor-pointer mt-1">
+                  <Upload className="w-3 h-3" />
+                  <span>{uploadingAvatar ? 'Uploading...' : 'Upload Photo'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleAvatarUpload}
+                    disabled={uploadingAvatar}
+                    className="hidden"
+                  />
+                </label>
               </div>
             </div>
 

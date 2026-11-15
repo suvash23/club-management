@@ -21,12 +21,16 @@ export class PaymentsController {
   @ApiQuery({ name: 'memberId', required: false })
   @ApiQuery({ name: 'status', enum: PaymentStatus, required: false })
   @ApiQuery({ name: 'method', enum: PaymentMethod, required: false })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'limit', required: false })
   findAll(
     @Query('memberId') memberId?: string,
     @Query('status') status?: PaymentStatus,
     @Query('method') method?: PaymentMethod,
+    @Query('page') page?: number,
+    @Query('limit') limit?: number,
   ) {
-    return this.paymentsService.findAll({ memberId, status, method });
+    return this.paymentsService.findAll({ memberId, status, method, page, limit });
   }
 
   @Get('my-history')

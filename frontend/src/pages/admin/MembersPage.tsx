@@ -25,6 +25,11 @@ export const MembersPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
 
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+
   // Modals
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -56,16 +61,20 @@ export const MembersPage: React.FC = () => {
   useEffect(() => {
     fetchMembers();
     fetchPlans();
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   const fetchMembers = async () => {
     try {
       setLoading(true);
-      const params: any = {};
+      const params: any = { page, limit: 6 };
       if (statusFilter) params.status = statusFilter;
       if (search) params.search = search;
       const res = await apiClient.get('/members', { params });
       setMembers(res.data.data || []);
+      if (res.data.meta) {
+        setTotalPages(res.data.meta.totalPages || 1);
+        setTotalCount(res.data.meta.total || 0);
+      }
     } catch (err) {
       console.error('Error fetching members:', err);
     } finally {
@@ -302,6 +311,32 @@ export const MembersPage: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Bar */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <span>
+            Showing {members.length} of {totalCount} members (Page {page} of {totalPages})
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span className="font-bold text-slate-800 px-1">
+              {page} / {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LoginPage } from './pages/auth/LoginPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { AppLayout } from './layouts/AppLayout';
 
 // Admin Pages
@@ -33,6 +34,7 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Admin Protected Routes */}
           <Route element={<AppLayout requiredRole="ADMIN" />}>

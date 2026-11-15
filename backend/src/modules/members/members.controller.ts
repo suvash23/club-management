@@ -1,5 +1,8 @@
-import { Controller, Get, Post, Put, Delete, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Put, Delete, Patch, Body, Param, Query, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 import { MembersService } from './members.service';
 import { CreateMemberDto, UpdateMemberDto } from './dto/create-member.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -40,6 +43,47 @@ export class MembersController {
     @Body('paymentMethod') paymentMethod?: 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'ONLINE',
   ) {
     return this.membersService.renewPlan(userId, planId, paymentMethod);
+  }
+
+  @Post(':id/avatar')
+  @Roles(Role.ADMIN, Role.MEMBER)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads/avatars',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+          cb(null, `avatar-${uniqueSuffix}${extname(file.originalname)}`);
+        },
+      }),
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+      fileFilter: (req, file, cb) => {
+        if (!file.mimetype.match(/\/(jpg|jpeg|png|webp)$/)) {
+          return cb(new BadRequestException('Only image files (jpg, jpeg, png, webp) are allowed!'), false);
+        }
+        cb(null, true);
+      },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiOperation({ summary: 'Upload member avatar image' })
+  async uploadAvatar(
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded');
+    }
+    const avatarUrl = `http://localhost:5000/uploads/avatars/${file.filename}`;
+    return this.membersService.update(id, { avatarUrl });
   }
 
   @Get(':id')

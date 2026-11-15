@@ -7,31 +7,48 @@ import { PaymentMethod, PaymentStatus } from '@prisma/client';
 export class PaymentsService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(query?: { memberId?: string; status?: PaymentStatus; method?: PaymentMethod }) {
-    const { memberId, status, method } = query || {};
+  async findAll(query?: { memberId?: string; status?: PaymentStatus; method?: PaymentMethod; page?: number; limit?: number }) {
+    const { memberId, status, method, page = 1, limit = 10 } = query || {};
+    const skip = (Number(page) - 1) * Number(limit);
+
     const where: any = {};
     if (memberId) where.memberId = memberId;
     if (status) where.status = status;
     if (method) where.method = method;
 
-    return this.prisma.payment.findMany({
-      where,
-      orderBy: { paidAt: 'desc' },
-      include: {
-        member: {
-          select: {
-            id: true,
-            memberCode: true,
-            firstName: true,
-            lastName: true,
-            user: { select: { email: true } },
+    const [total, data] = await Promise.all([
+      this.prisma.payment.count({ where }),
+      this.prisma.payment.findMany({
+        where,
+        skip,
+        take: Number(limit),
+        orderBy: { paidAt: 'desc' },
+        include: {
+          member: {
+            select: {
+              id: true,
+              memberCode: true,
+              firstName: true,
+              lastName: true,
+              user: { select: { email: true } },
+            },
+          },
+          subscription: {
+            include: { plan: true },
           },
         },
-        subscription: {
-          include: { plan: true },
-        },
+      }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
       },
-    });
+    };
   }
 
   async findOne(id: string) {
