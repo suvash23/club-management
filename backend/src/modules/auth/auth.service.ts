@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../../prisma/prisma.service';
+import { MailService } from '../mail/mail.service';
 import { Role, MemberStatus } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
@@ -12,6 +13,7 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -138,9 +140,14 @@ export class AuthService {
       data: { resetToken, resetTokenExpires },
     });
 
+    // Send actual password reset email
+    const memberName = user.id
+      ? (await this.prisma.memberProfile.findUnique({ where: { userId: user.id } }))?.firstName || 'Member'
+      : 'Member';
+    await this.mailService.sendPasswordResetEmail(user.email, memberName, resetToken);
+
     return {
-      message: 'Password reset code generated successfully.',
-      resetToken, // Returned in demo for testing ease
+      message: 'If an account exists with that email, a password reset link has been dispatched.',
     };
   }
 
@@ -195,6 +202,22 @@ export class AuthService {
     }
     const { password, ...safeUser } = user;
     return safeUser;
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) throw new BadRequestException('Current password is incorrect');
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Password changed successfully.' };
   }
 
   private generateToken(userId: string, email: string, role: string) {

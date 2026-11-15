@@ -7,6 +7,8 @@ export const MemberPlanPage: React.FC = () => {
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [renewing, setRenewing] = useState<string | null>(null);
+  const [renewSuccess, setRenewSuccess] = useState('');
 
   useEffect(() => {
     loadData();
@@ -25,6 +27,25 @@ export const MemberPlanPage: React.FC = () => {
       console.error('Failed to load plan details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRenew = async (planId: string, planName: string) => {
+    if (!window.confirm(`Confirm renewing / switching to "${planName}"?`)) return;
+    setRenewing(planId);
+    setRenewSuccess('');
+    try {
+      const res = await apiClient.post('/members/renew', {
+        planId,
+        paymentMethod: 'ONLINE',
+      });
+      setRenewSuccess(`Successfully subscribed to ${planName}! Invoice: ${res.data.payment.invoiceNumber}`);
+      await loadData();
+      setTimeout(() => setRenewSuccess(''), 5000);
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to renew plan');
+    } finally {
+      setRenewing(null);
     }
   };
 
@@ -50,6 +71,13 @@ export const MemberPlanPage: React.FC = () => {
           Review your current active subscription, expiration date, and available membership tiers.
         </p>
       </div>
+
+      {renewSuccess && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl flex items-center gap-2 text-sm font-bold">
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+          {renewSuccess}
+        </div>
+      )}
 
       {/* Current Active Plan Card */}
       <div className="bg-gradient-to-r from-sky-900 to-indigo-900 rounded-3xl p-6 md:p-8 text-white shadow-xl">
@@ -145,14 +173,19 @@ export const MemberPlanPage: React.FC = () => {
 
                 <div className="mt-6 pt-4 border-t border-slate-100">
                   <button
-                    disabled={isCurrent}
+                    onClick={() => handleRenew(p.id, p.name)}
+                    disabled={renewing === p.id}
                     className={`w-full py-2.5 rounded-xl font-bold text-xs transition ${
                       isCurrent
-                        ? 'bg-slate-100 text-slate-400 cursor-default'
+                        ? 'bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 shadow-sm'
                         : 'bg-sky-600 hover:bg-sky-700 text-white shadow-sm'
-                    }`}
+                    } disabled:opacity-50`}
                   >
-                    {isCurrent ? 'Current Plan' : 'Inquire to Switch'}
+                    {renewing === p.id
+                      ? 'Processing...'
+                      : isCurrent
+                      ? 'Renew Current Tier'
+                      : 'Switch & Subscribe'}
                   </button>
                 </div>
               </div>

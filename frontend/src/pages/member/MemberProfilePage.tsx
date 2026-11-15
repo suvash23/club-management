@@ -21,6 +21,13 @@ export const MemberProfilePage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState(false);
 
+  // Change password state
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [pwMsg, setPwMsg] = useState({ type: '', text: '' });
+  const [pwSaving, setPwSaving] = useState(false);
+
   const [form, setForm] = useState({
     firstName: '',
     lastName: '',
@@ -66,6 +73,36 @@ export const MemberProfilePage: React.FC = () => {
       alert(err.response?.data?.message || 'Failed to update profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwMsg({ type: '', text: '' });
+
+    if (newPassword !== confirmPassword) {
+      setPwMsg({ type: 'error', text: 'New passwords do not match' });
+      return;
+    }
+
+    setPwSaving(true);
+    try {
+      await apiClient.post('/auth/change-password', {
+        currentPassword,
+        newPassword,
+      });
+      setPwMsg({ type: 'success', text: 'Password changed successfully!' });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setPwMsg({ type: '', text: '' }), 4000);
+    } catch (err: any) {
+      setPwMsg({
+        type: 'error',
+        text: err.response?.data?.message || 'Failed to change password',
+      });
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -244,6 +281,82 @@ export const MemberProfilePage: React.FC = () => {
                   className="px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm rounded-xl shadow-sm transition disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : 'Save Profile Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Change Password Card */}
+          <div className="bg-white rounded-3xl p-6 md:p-8 border border-slate-200/80 shadow-sm mt-8">
+            <h3 className="font-extrabold text-slate-900 text-lg mb-1">Security & Password</h3>
+            <p className="text-xs text-slate-500 mb-6">Change your account login password</p>
+
+            {pwMsg.text && (
+              <div
+                className={`mb-6 p-4 rounded-2xl flex items-center gap-2 text-xs font-bold ${
+                  pwMsg.type === 'success'
+                    ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                    : 'bg-rose-50 border border-rose-200 text-rose-800'
+                }`}
+              >
+                {pwMsg.type === 'success' && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                {pwMsg.text}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Current Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-sky-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    New Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                    Confirm New Password
+                  </label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Repeat new password"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-100 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={pwSaving}
+                  className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm rounded-xl shadow-sm transition disabled:opacity-50"
+                >
+                  {pwSaving ? 'Updating...' : 'Update Password'}
                 </button>
               </div>
             </form>

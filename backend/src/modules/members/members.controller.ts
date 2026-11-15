@@ -5,6 +5,7 @@ import { CreateMemberDto, UpdateMemberDto } from './dto/create-member.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Role, MemberStatus } from '@prisma/client';
 
 @ApiTags('Members')
@@ -28,6 +29,17 @@ export class MembersController {
     @Query('limit') limit?: number,
   ) {
     return this.membersService.findAll({ search, status, page, limit });
+  }
+
+  @Post('renew')
+  @Roles(Role.MEMBER, Role.ADMIN)
+  @ApiOperation({ summary: 'Self-renew membership plan for authenticated member' })
+  renewPlan(
+    @CurrentUser('id') userId: string,
+    @Body('planId') planId: string,
+    @Body('paymentMethod') paymentMethod?: 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'ONLINE',
+  ) {
+    return this.membersService.renewPlan(userId, planId, paymentMethod);
   }
 
   @Get(':id')

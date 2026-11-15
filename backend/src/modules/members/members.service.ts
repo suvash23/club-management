@@ -185,6 +185,75 @@ export class MembersService {
     });
   }
 
+  async renewPlan(userId: string, planId: string, paymentMethod: 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'ONLINE' = 'ONLINE') {
+    const member = await this.prisma.memberProfile.findUnique({
+      where: { userId },
+      include: { user: true },
+    });
+    if (!member) {
+      throw new NotFoundException('Member not found');
+    }
+
+    const plan = await this.prisma.membershipPlan.findUnique({
+      where: { id: planId },
+    });
+    if (!plan || !plan.isActive) {
+      throw new BadRequestException('Selected membership plan is invalid or inactive');
+    }
+
+    // Determine new start date: if currently active and future end date, extend from end date, else start today
+    const currentActiveSub = await this.prisma.memberSubscription.findFirst({
+      where: {
+        memberId: member.id,
+        status: 'ACTIVE',
+        endDate: { gte: new Date() },
+      },
+      orderBy: { endDate: 'desc' },
+    });
+
+    const startDate = currentActiveSub ? new Date(currentActiveSub.endDate) : new Date();
+    const endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + plan.durationInDays);
+
+    const subscription = await this.prisma.memberSubscription.create({
+      data: {
+        memberId: member.id,
+        planId: plan.id,
+        startDate,
+        endDate,
+        status: 'ACTIVE',
+      },
+    });
+
+    // Flip member status to ACTIVE
+    await this.prisma.memberProfile.update({
+      where: { id: member.id },
+      data: { status: MemberStatus.ACTIVE },
+    });
+
+    const paymentCount = await this.prisma.payment.count();
+    const invoiceNumber = `INV-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(1001 + paymentCount).padStart(4, '0')}`;
+    
+    const payment = await this.prisma.payment.create({
+      data: {
+        invoiceNumber,
+        memberId: member.id,
+        subscriptionId: subscription.id,
+        amount: plan.price,
+        method: paymentMethod as any,
+        status: 'PAID',
+        notes: `Plan Renewal: ${plan.name}`,
+      },
+    });
+
+    return {
+      message: 'Plan renewed successfully',
+      subscription,
+      payment,
+      endDate,
+    };
+  }
+
   async remove(id: string) {
     const member = await this.findOne(id);
     await this.prisma.user.delete({
